@@ -1,0 +1,17 @@
+{
+  "compilerOptions": {
+    "outDir": "build/",
+    "module": "commonjs",
+    "target": "es2016",
+    "declaration": true,
+    "sourceMap": true,
+    "noImplicitAny": true,
+    "noImplicitReturns": true,
+    "noImplicitThis": true,
+    "preserveConstEnums": true,
+    "removeComments": false
+  },
+  "include": [
+    "src/**/*"
+  ]
+}
