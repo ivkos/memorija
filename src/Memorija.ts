@@ -16,9 +16,11 @@
 
 import { MemorijaEntry } from "./MemorijaEntry";
 
+type RawEntry<V> = [number, V];
+
 export class Memorija<K, V> implements Map<K, V> {
-    private readonly map: Map<K, MemorijaEntry<V>>;
-    private readonly timers: WeakMap<MemorijaEntry<V>, any>;
+    private readonly map: Map<K, RawEntry<V>>;
+    private readonly timers: WeakMap<RawEntry<V>, any>;
 
     constructor() {
         this.map = new Map();
@@ -41,8 +43,8 @@ export class Memorija<K, V> implements Map<K, V> {
      * @return {V}
      */
     get (key: K): V {
-        const result = this.getEntry(key);
-        return (result === undefined) ? undefined : result.value;
+        const result = this.getRawEntry(key);
+        return (result === undefined) ? undefined : result[1];
     }
 
     /**
@@ -52,6 +54,16 @@ export class Memorija<K, V> implements Map<K, V> {
      * @return {MemorijaEntry<V>}
      */
     getEntry(key: K): MemorijaEntry<V> {
+        const entry = this.getRawEntry(key);
+        return (entry === undefined) ? undefined : new MemorijaEntry(entry[1], entry[0]);
+    }
+
+    /**
+     * @param {K} key
+     * @return {RawEntry<V>}
+     * @private
+     */
+    private getRawEntry(key: K): RawEntry<V> {
         return this.map.get(key);
     }
 
@@ -86,21 +98,21 @@ export class Memorija<K, V> implements Map<K, V> {
      * @return {number} the timestamp when the key expires, or null if not set, or undefined if the key does not exist
      */
     expireAt(key: K, expireAt?: number | null): number | null | undefined {
-        const entry = this.getEntry(key);
+        const entry = this.getRawEntry(key);
         if (entry === undefined) return undefined;
 
         // getter mode
         if (expireAt === undefined) {
-            return entry.expireAt;
+            return entry[0];
         }
 
         // setter mode
         if (expireAt === null) {
-            this.set(key, entry.value);
+            this.set(key, entry[1]);
             return null;
         }
 
-        this.set(key, entry.value, expireAt - Date.now());
+        this.set(key, entry[1], expireAt - Date.now());
 
         return expireAt;
     }
@@ -118,7 +130,7 @@ export class Memorija<K, V> implements Map<K, V> {
 
         const expireAt = ttl !== undefined ? Date.now() + ttl : undefined;
 
-        const entry = new MemorijaEntry<V>(value, expireAt);
+        const entry: RawEntry<V> = [expireAt, value];
         this.map.set(key, entry);
 
         if (ttl !== undefined) {
@@ -168,7 +180,7 @@ export class Memorija<K, V> implements Map<K, V> {
         const self = this;
 
         this.map.forEach((v, k) => {
-            callbackfn(v.value, k, self);
+            callbackfn(v[1], k, self);
         }, thisArg);
     }
 
@@ -181,7 +193,6 @@ export class Memorija<K, V> implements Map<K, V> {
         return this.map.keys();
     }
 
-
     /**
      * Returns a new iterator that contains the values for each element in the cache in insertion order.
      *
@@ -189,7 +200,7 @@ export class Memorija<K, V> implements Map<K, V> {
      */
     * values(): IterableIterator<V> {
         for (let v of this.map.values()) {
-            yield v.value;
+            yield v[1];
         }
     }
 
@@ -200,7 +211,7 @@ export class Memorija<K, V> implements Map<K, V> {
      */
     * entries(): IterableIterator<[K, V]> {
         for (let [k, v] of this.map) {
-            yield [k, v.value];
+            yield [k, v[1]];
         }
     }
 
@@ -212,7 +223,7 @@ export class Memorija<K, V> implements Map<K, V> {
      */
     * fullEntries(): IterableIterator<[K, MemorijaEntry<V>]> {
         for (let [k, v] of this.map) {
-            yield [k, v];
+            yield [k, new MemorijaEntry(v[1], v[0])];
         }
     }
 
@@ -222,8 +233,10 @@ export class Memorija<K, V> implements Map<K, V> {
      *
      * @return {IterableIterator<MemorijaEntry<V>>}
      */
-    fullValues(): IterableIterator<MemorijaEntry<V>> {
-        return this.map.values();
+    * fullValues(): IterableIterator<MemorijaEntry<V>> {
+        for (let v of this.map.values()) {
+            yield new MemorijaEntry(v[1], v[0]);
+        }
     }
 
     [Symbol.toStringTag]: "Map";
@@ -234,11 +247,11 @@ export class Memorija<K, V> implements Map<K, V> {
 
     /**
      * @param {K} key
-     * @param {MemorijaEntry<V>} entry
+     * @param {RawEntry<V>} entry
      * @param {number} timeout
      * @private
      */
-    private createTimer(key: K, entry: MemorijaEntry<V>, timeout: number) {
+    private createTimer(key: K, entry: RawEntry<V>, timeout: number) {
         this.timers.set(entry, setTimeout(() => {
             this.timers.delete(entry);
             this.map.delete(key);
@@ -250,14 +263,14 @@ export class Memorija<K, V> implements Map<K, V> {
      * @private
      */
     private cancelTimerForKey(key: K): void {
-        this.cancelTimerForEntry(this.getEntry(key));
+        this.cancelTimerForRawEntry(this.getRawEntry(key));
     }
 
     /**
-     * @param {MemorijaEntry<V>} entry
+     * @param {RawEntry<V>} entry
      * @private
      */
-    private cancelTimerForEntry(entry: MemorijaEntry<V>): void {
+    private cancelTimerForRawEntry(entry: RawEntry<V>): void {
         clearTimeout(this.timers.get(entry));
         this.timers.delete(entry);
     }
@@ -266,8 +279,8 @@ export class Memorija<K, V> implements Map<K, V> {
      * @private
      */
     private cancelTimers(): void {
-        for (let v of this.fullValues()) {
-            this.cancelTimerForEntry(v);
+        for (let v of this.map.values()) {
+            this.cancelTimerForRawEntry(v);
         }
     }
 }
