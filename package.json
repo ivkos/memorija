@@ -1,6 +1,6 @@
 {
   "name": "memorija",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "In-memory object cache with TTL support and Map-compatible interface",
   "keywords": [
     "in-memory",
