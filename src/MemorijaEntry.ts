@@ -15,8 +15,8 @@
  */
 
 export class MemorijaEntry<T> {
-    private _value: T;
-    private _expireAt: number;
+    private readonly _value: T;
+    private readonly _expireAt: number;
 
     constructor(value: T, expireAt?: number) {
         this._value = value;
