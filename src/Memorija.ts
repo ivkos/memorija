@@ -177,11 +177,9 @@ export class Memorija<K, V> implements Map<K, V> {
      * @param thisArg
      */
     forEach(callbackfn: (value: V, key: K, map: Map<K, V>) => void, thisArg?: any): void {
-        const self = this;
-
         this.map.forEach((v, k) => {
-            callbackfn(v[1], k, self);
-        }, thisArg);
+            callbackfn.apply(thisArg, [v[1], k, this]);
+        });
     }
 
     /**
